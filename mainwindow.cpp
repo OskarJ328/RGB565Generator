@@ -5,6 +5,8 @@
 #include <QPixmap>
 #include <QImageReader>
 #include <QSignalBlocker>
+#include <QMessageBox>
+
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -26,6 +28,7 @@ void MainWindow::connectsInit(){
     connect(ui->spinBoxNewResHeight, &QSpinBox::valueChanged, this, &MainWindow::NewImageHeightChangedAction);
     connect(ui->pushButtonPrzeskaluj, &QPushButton::clicked, this, &MainWindow::generateNewImage);
     connect(ui->pushButtonZapisz, &QPushButton::clicked, this, &MainWindow::saveNewImage);
+    connect(ui->pushButtonGenerujRGB565, &QPushButton::clicked, this, &MainWindow::generateRGB565Array);
 }
 
 void MainWindow::namesInit(){
@@ -122,7 +125,15 @@ void MainWindow::generateNewImage(){
         Qt::SmoothTransformation
     );
 
-    ui->labelPodgladPoPrzeskalowaniu->setPixmap(QPixmap::fromImage(NewImage));
+    QPixmap pixmap = QPixmap::fromImage(NewImage);
+    ui->labelPodgladPoPrzeskalowaniu->setPixmap(
+        pixmap.scaled(
+            ui->labelPodgladPoPrzeskalowaniu->size(),
+            Qt::KeepAspectRatio,
+            Qt::SmoothTransformation
+            )
+        );
+
 }
 
 void MainWindow::saveNewImage(){
@@ -138,3 +149,55 @@ void MainWindow::saveNewImage(){
         }
     }
 }
+
+void MainWindow::convertToRGB565(){
+    for(int y = 0; y < NewImage.height(); y++){
+        for(int x = 0; x < NewImage.width(); x++){
+            QColor color = NewImage.pixelColor(x, y);
+            int r = color.red();
+            int g = color.green();
+            int b = color.blue();
+            uint16_t rgb565_pixel = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+            RGB565.append(rgb565_pixel);
+        }
+    }
+}
+
+void MainWindow::generateRGB565Array(){
+    QString folder = QFileDialog::getExistingDirectory(this, "Choose Directory to save");
+    if(!folder.isEmpty()){
+        convertToRGB565();
+        QString fileName = ui->textEditArrayNameVal->toPlainText();
+        QString filePath = folder + "/" + fileName + ".c";
+        QString structName = fileName + QString::number(NewImage.width()) + "x" + QString::number(NewImage.height());
+        QString arrayName = structName + "_buffer";
+        qDebug() <<filePath;
+        QFile file(filePath);
+        if(!file.open(QIODevice::WriteOnly | QIODevice::Text)){
+            QMessageBox::warning(this, "Error", "Failed at opening file");
+            return;
+        }
+        QTextStream out(&file);
+        out << "static const uint16_t " << arrayName << "[] =\n{\n";
+        for(int i = 0; i < RGB565.size(); i++){
+            if (i % 64 == 0){
+                out << "    ";
+            }
+            QString value = QString("0x%1").arg(RGB565[i], 4, 16, QLatin1Char('0')).toUpper();
+            out << value;
+            if(i != RGB565.size() - 1){
+                out << ", ";
+            }
+            if((i + 1) % 64 == 0){
+                out << "\n";
+            }
+        }
+        out << "\n};\n";
+        out << "image_t " << structName
+            << " = {.Buffer = " << arrayName
+            << ", .Width = "    << NewImage.width()
+            << ", .Height = "   << NewImage.height()
+            << "};";
+    }
+}
+

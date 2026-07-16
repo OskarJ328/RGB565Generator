@@ -26,6 +26,7 @@ private:
 
     int NewImageWidth;
     int NewImageHeight;
+    QVector<uint16_t> RGB565;
 
     void connectsInit();
     void namesInit();
@@ -38,5 +39,7 @@ private:
     void NewImageHeightChangedAction();
     void generateNewImage();
     void saveNewImage();
+    void convertToRGB565();
+    void generateRGB565Array();
 };
 #endif // MAINWINDOW_H
