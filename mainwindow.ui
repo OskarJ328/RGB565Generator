@@ -307,7 +307,7 @@
        </spacer>
       </item>
       <item>
-       <layout class="QVBoxLayout" name="verticalLayout" stretch="2,5">
+       <layout class="QVBoxLayout" name="verticalLayout" stretch="0,5">
         <item>
          <widget class="QLabel" name="labelEnterArrayName">
           <property name="text">

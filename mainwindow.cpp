@@ -54,7 +54,7 @@ void MainWindow::namesInit(){
     ui->spinBoxNewResHeight->setValue(0);
     ui->labelNewFormatName->setText("Format");
     ui->labelNewFormatVal->setText("");
-
+    ui->labelEnterArrayName->setText("Enter Array Name");
 }
 
 void MainWindow::browseFile(){
