@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <QImage>
+#include <QFont>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -20,7 +21,7 @@ public:
 
 private:
     Ui::MainWindow *ui;
-    QString filePath;
+    QString imageFilePath;
     QImage CurrImage;
     QImage NewImage;
 
@@ -28,9 +29,14 @@ private:
     int NewImageHeight;
     QVector<uint16_t> RGB565;
 
+
+    QString fontFilePath;
+    QFont font;
     void connectsInit();
     void namesInit();
-    void browseFile();
+
+
+    void browseImageFile();
     void showImage();
     void refreshCurrentImageInfo();
     void refreshNewImageInfo();
@@ -41,5 +47,11 @@ private:
     void saveNewImage();
     void convertToRGB565();
     void generateRGB565Array();
+
+    void browseFontFile();
+    void refreshFontInfo();
+    void showFontImage();
+    void fontSizeChangedAction();
+
 };
 #endif // MAINWINDOW_H
