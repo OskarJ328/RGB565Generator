@@ -8,14 +8,15 @@
 #include <QMessageBox>
 #include <QFontDatabase>
 #include <QPainter>
-#include <QFontMetrics>
-
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , font()
+    , fontMetrics(font)
 {
     ui->setupUi(this);
+    MainWindow::setWindowTitle("Display Asset Generator");
     connectsInit();
     namesInit();
 }
@@ -35,6 +36,7 @@ void MainWindow::connectsInit(){
 
     connect(ui->pushButton_BrowseFont, &QPushButton::clicked, this, &MainWindow::browseFontFile);
     connect(ui->spinBox_fontSize, &QSpinBox::valueChanged, this, &MainWindow::fontSizeChangedAction);
+    connect(ui->pushButton_generateFont, &QPushButton::clicked, this, &MainWindow::generateFontArray);
 }
 
 void MainWindow::namesInit(){
@@ -47,7 +49,6 @@ void MainWindow::namesInit(){
     ui->pushButtonWskazanieSciezki->setText("Browse File");
     ui->pushButtonZapisz->setText("Save");
 
-    ui->labelNaglowek->setText("RGB 565 Image Converter");
     ui->labelPodgladObrazka->setText("");
     ui->labelPodgladPoPrzeskalowaniu->setText("");
     ui->labelWskazanaSciezka->setText("");
@@ -252,27 +253,94 @@ void MainWindow::refreshFontInfo(){
 
 void MainWindow::fontSizeChangedAction(){
     font.setPixelSize(ui->spinBox_fontSize->value());
-    QFontMetrics metrics(font);
-    ui->label_fontWidthVal->setText(QString::number(metrics.maxWidth()));
-    ui->label_fontHeightVal->setText(QString::number(metrics.height()));
+    fontMetrics = QFontMetrics(font);
+    ui->label_fontWidthVal->setText(QString::number(fontMetrics.maxWidth()));
+    ui->label_fontHeightVal->setText(QString::number(fontMetrics.height()));
     showFontImage();
 }
 
-void MainWindow::showFontImage(){
-    QImage fontImage(64,64, QImage::Format_ARGB32);
+QImage MainWindow::generateGlyphImage(const QString &text){
+    QImage fontImage(fontMetrics.maxWidth(), fontMetrics.height(), QImage::Format_ARGB32);
     fontImage.fill(Qt::white);
     QPainter painter(&fontImage);
     painter.setRenderHint(QPainter::TextAntialiasing, false);
     painter.setRenderHint(QPainter::Antialiasing, false);
     painter.setFont(font);
     painter.setPen(Qt::black);
-    painter.drawText(fontImage.rect(), Qt::AlignCenter, "Aa");
+    painter.drawText(fontImage.rect(), Qt::AlignCenter, text);
+    return fontImage;
+}
 
-    ui->label_fontPreviewImage->setPixmap(
+void MainWindow::showFontImage(){
+    QImage fontImage = generateGlyphImage("Aa");
+    ui->label_fontPreviewImage->setPixmap( 
         QPixmap::fromImage(fontImage).scaled(
             ui->label_fontPreviewImage->size(),
             Qt::KeepAspectRatio,
             Qt::FastTransformation
         )
     );
+}
+
+void MainWindow::generateFontArray(){
+    QString folder = QFileDialog::getExistingDirectory(this, "Choose Directory to save");
+    if(!folder.isEmpty()){
+        QString fileName = ui->textEdit_enterFontName->toPlainText();
+        QString cleanName = fileName;
+        cleanName.replace(" ", "_");
+        QString filePath = folder + "/" + fileName + ".c";
+        QString structName = cleanName + QString::number(fontMetrics.maxWidth()) + "x" + QString::number(fontMetrics.height());
+        QString bufferName = structName + "_buffer";
+
+        QFile file(filePath);
+        if(!file.open(QIODevice::WriteOnly | QIODevice::Text)){
+            QMessageBox::warning(this, "Error", "Failed at opening file");
+            return;
+        }
+        QTextStream out(&file);
+        out << "static const uint16_t " << bufferName << "[] =\n{\n";
+
+        QVector<uint16_t> fontGlyphs;
+        for(char c = 32; c <= 126; c++){
+            auto glyph = generateGlyphArray(c);
+            fontGlyphs.append(glyph);
+        }
+        for(uint16_t idx = 0; idx < fontGlyphs.size(); idx ++){
+            if(idx % fontMetrics.height() == 0){
+                out << "    ";
+            }
+            QString value = QString("0x%1").arg(fontGlyphs[idx], 4, 16, QLatin1Char('0')).toUpper();
+            out << value;
+            if(idx != fontGlyphs.size() - 1){
+                out << ", ";
+            }
+            if((idx + 1) % fontMetrics.height() == 0){
+                out << "\n";
+            }
+        }
+        out << "\n};\n";
+        out << "font_t " << structName << " = {"
+            << ".width = " << fontMetrics.maxWidth() << ", "
+            << ".height = " << fontMetrics.height() << ", "
+            << ".data = " <<  bufferName << ", "
+            << ".charSpacing = 0, .lineSpacing = 0};";
+
+    }
+}
+
+QVector<uint16_t> MainWindow::generateGlyphArray(char c){
+    QImage glyph = generateGlyphImage(QString(c));
+    QVector<uint16_t> glyphArray(fontMetrics.height());
+    for(int y = 0; y < fontMetrics.height(); y++){
+        uint16_t row = 0;
+        for(int x = 0; x < fontMetrics.maxWidth(); x++){
+            QRgb pixel = glyph.pixel(x, y);
+            bool isSet = qGray(pixel) < 128;
+            if(isSet){
+                row |= (1 << (16 - x));
+            }
+        }
+        glyphArray[y] = row;
+    }
+    return glyphArray;
 }

@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QImage>
 #include <QFont>
+#include <QFontMetrics>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -32,6 +33,9 @@ private:
 
     QString fontFilePath;
     QFont font;
+    QFontMetrics fontMetrics;
+
+
     void connectsInit();
     void namesInit();
 
@@ -50,8 +54,11 @@ private:
 
     void browseFontFile();
     void refreshFontInfo();
+    QImage generateGlyphImage(const QString &text);
     void showFontImage();
     void fontSizeChangedAction();
+    QVector<uint16_t> generateGlyphArray(char c);
+    void generateFontArray();
 
 };
 #endif // MAINWINDOW_H
